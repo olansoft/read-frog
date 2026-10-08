@@ -1,5 +1,11 @@
 # @read-frog/extension
 
+## 1.50.3
+
+### Patch Changes
+
+- [#2316](https://github.com/mengxi-ream/read-frog/pull/2316) [`56f29ed`](https://github.com/mengxi-ream/read-frog/commit/56f29eddb13ff5b8b31b17667cbcf862144a507d) Thanks [@mengxi-ream](https://github.com/mengxi-ream)! - style(ui): raise the corner radius base to 10px and frame tables with rounded-lg, matching the website
+
 ## 1.50.2
 
 ### Patch Changes
