@@ -43,3 +43,9 @@ export interface NoteStorageProvider<TConnection> {
     records: Record<string, unknown>[],
   ) => Promise<NoteStorageSaveResult>
 }
+
+export interface NotionDatabase {
+  id: string
+  name: string
+  dataSources: { id: string; name: string }[]
+}

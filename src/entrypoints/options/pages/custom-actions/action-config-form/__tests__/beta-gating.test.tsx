@@ -73,6 +73,29 @@ function cloneConfig(config: Config): Config {
 }
 
 describe("customActionConfigForm notebase availability", () => {
+  it("shows only the settings selected in the library provider menu", () => {
+    const store = createStore()
+    seedConfig(store, cloneConfig(DEFAULT_CONFIG))
+    render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <CustomActionConfigForm />
+        </TooltipProvider>
+      </Provider>,
+    )
+    const officialTitle = i18n.t("options.selectionToolbar.customActions.form.notebase.title")
+    expect(
+      screen.queryByRole("region", { name: "Notion storage", hidden: true }),
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Notion 数据库", hidden: true }))
+    expect(screen.getByRole("region", { name: "Notion storage", hidden: true })).toBeInTheDocument()
+    expect(screen.queryByText(officialTitle)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "官方笔记库", hidden: true }))
+    expect(screen.getByText(officialTitle)).toBeInTheDocument()
+    expect(
+      screen.queryByRole("region", { name: "Notion storage", hidden: true }),
+    ).not.toBeInTheDocument()
+  })
   it("renders built-in fields read-only and duplicates the complete action", async () => {
     const store = createStore()
     const config = cloneConfig(DEFAULT_CONFIG)

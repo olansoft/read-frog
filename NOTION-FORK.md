@@ -18,12 +18,14 @@ WXT_SKIP_ENV_VALIDATION=true pnpm build
 ## 配置 Notion
 
 1. 在 Notion 创建内部集成，授予读取内容和插入内容权限，并把目标数据库连接到该集成。
-2. 取得数据库中目标 **Data Source ID**。数据库 URL 中的 Database ID 与 Data Source ID 不一定相同。可通过 `GET /v1/databases/{database_id}` 查看 `data_sources` 列表。
-3. 打开扩展设置 → 自定义 AI 动作 → 选择动作 → 笔记库页签，下方有 Notion 配置区。内置词典等动作也支持配置。
+2. 不需要手动取得 Database ID 或 Data Source ID。扩展使用令牌查找可访问的数据源，并按所属 Database 分组。
+3. 打开扩展设置 → 自定义 AI 动作 → 选择动作 → 笔记库页签，在顶部菜单选择 **Notion 数据库**。**官方笔记库** 菜单显示原有官方设置，两者不会同时显示。内置词典等动作也支持配置。
 4. 填写内部集成令牌并点击 **Save token**。令牌由所有动作共用，只存入当前扩展的本地存储，不进入配置导出、自动备份或配置同步。
-5. 填写 Data Source ID，点击 **Load / refresh fields**。
+5. 保存令牌后自动查找数据库；已有令牌可以点击 **查找 / 刷新数据库**。先选择 Database，再选择其中的 Data Source，点击 **Load / refresh fields**。同一 Database 下的多个可访问数据源分别列出，未命名项附带 ID 末尾以便区分。
 6. 将文本输出映射到 Title 或 Rich text，数字输出映射到 Number。必须有一个标题映射，同一个 Notion 属性只能使用一次。
 7. 点击 **Enable Notion**。生成 AI 结果后，按钮显示 **Save to Notion**；保存成功提示可以直接打开新页面。
+
+菜单切换只改变显示的设置区；保存目的地仍由 **Enable Notion / Disconnect Notion** 控制。切换数据源会清空编辑中的字段映射，重新启用前保留原有保存连接。
 
 此版本支持 Title、Rich text、Number。映射使用动作字段 ID 和 Notion 属性 ID，重命名不会使映射失效。每次保存重新读取结构；字段删除或类型变化时会提示修复映射。修改数据源后需要重新读取字段并启用连接。
 

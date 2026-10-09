@@ -1,4 +1,8 @@
-import type { NotionConnection, NoteStorageProperty } from "@/utils/note-storage/types"
+import type {
+  NotionConnection,
+  NoteStorageProperty,
+  NotionDatabase,
+} from "@/utils/note-storage/types"
 import { useSelector } from "@tanstack/react-form"
 import { useState } from "react"
 import { Button } from "@/components/ui/base-ui/button"
@@ -12,6 +16,8 @@ export function NotionConnectionField() {
   const action = useSelector(form.store, (state) => state.values)
   const [token, setToken] = useState("")
   const [dataSourceId, setDataSourceId] = useState(action.notionConnection?.dataSourceId ?? "")
+  const [databases, setDatabases] = useState<NotionDatabase[]>([])
+  const [databaseId, setDatabaseId] = useState("")
   const [properties, setProperties] = useState<NoteStorageProperty[]>([])
   const [mappings, setMappings] = useState<NotionConnection["mappings"]>(
     action.notionConnection?.mappings ?? [],
@@ -32,6 +38,25 @@ export function NotionConnectionField() {
   }
   const setConnection = (value: NotionConnection | undefined) => {
     autosave.edit(() => form.setFieldValue("notionConnection", value), { immediate: true })
+  }
+  const discover = async () => {
+    const reply = await sendMessage("notionListDatabases", undefined)
+    if (!reply.ok) throw new Error(reply.error)
+    setDatabases(reply.value)
+    const selected = reply.value.find((database) =>
+      database.dataSources.some((source) => source.id === dataSourceId),
+    )
+    setDatabaseId(selected?.id ?? "")
+    if (!selected) {
+      setDataSourceId("")
+      setProperties([])
+      setMappings([])
+    }
+    setMessage(
+      reply.value.length
+        ? "Select a database and data source."
+        : "No accessible databases. Share a database with this integration, then refresh.",
+    )
   }
   return (
     <section className="mt-6 space-y-3 rounded-lg border p-4" aria-label="Notion storage">
@@ -60,7 +85,9 @@ export function NotionConnectionField() {
             void run(async () => {
               await sendMessage("notionSetToken", { token })
               setToken("")
-              setMessage("Token saved locally. It is excluded from configuration exports and sync.")
+              setProperties([])
+              setDatabases([])
+              await discover()
             })
           }
         >
@@ -74,6 +101,9 @@ export function NotionConnectionField() {
             void run(async () => {
               await sendMessage("notionSetToken", { token: "" })
               setToken("")
+              setDatabases([])
+              setProperties([])
+              setDatabaseId("")
               setMessage("Saved token removed. All Notion connections now need a token.")
             })
           }
@@ -81,22 +111,62 @@ export function NotionConnectionField() {
           Remove token
         </Button>
       </div>
+      <Button type="button" variant="outline" disabled={busy} onClick={() => void run(discover)}>
+        查找 / 刷新数据库
+      </Button>
       <label className="block space-y-1 text-sm">
-        <span>Data Source ID</span>
-        <Input
-          value={dataSourceId}
+        <span>Database</span>
+        <select
+          aria-label="Notion database"
+          className="w-full rounded border bg-background p-2"
+          value={databaseId}
           disabled={busy}
+          onChange={(event) => {
+            const database = databases.find((item) => item.id === event.target.value)
+            setDatabaseId(event.target.value)
+            const next = database?.dataSources.length === 1 ? database.dataSources[0]!.id : ""
+            if (next !== dataSourceId) {
+              setDataSourceId(next)
+              setMappings([])
+              setProperties([])
+            }
+          }}
+        >
+          <option value="">选择 Database</option>
+          {databases.map((database) => (
+            <option key={database.id} value={database.id}>
+              {database.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span>Data Source</span>
+        <select
+          aria-label="Notion data source"
+          className="w-full rounded border bg-background p-2"
+          value={dataSourceId}
+          disabled={busy || !databaseId}
           onChange={(event) => {
             setDataSourceId(event.target.value)
             setProperties([])
             setMappings([])
           }}
-        />
+        >
+          <option value="">选择 Data Source</option>
+          {databases
+            .find((database) => database.id === databaseId)
+            ?.dataSources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name} ({source.id.slice(-8)})
+              </option>
+            ))}
+        </select>
       </label>
       <Button
         type="button"
         variant="outline"
-        disabled={busy || !dataSourceId.trim()}
+        disabled={busy || !databaseId || !dataSourceId.trim()}
         onClick={() =>
           void run(async () => {
             const reply = await sendMessage("notionGetProperties", {

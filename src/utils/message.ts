@@ -23,6 +23,7 @@ import type { GlossarySnapshot } from "@/utils/glossary/active-matcher"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { HostedAiStatus } from "@/utils/hosted-ai/types"
 import type {
+  NotionDatabase,
   NoteStorageReply,
   NoteStorageProperty,
   NoteStorageSaveResult,
@@ -32,6 +33,7 @@ import type { EdgeTTSVoice } from "@/utils/server/edge-tts/types"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
 interface ProtocolMap {
+  notionListDatabases: () => Promise<NoteStorageReply<NotionDatabase[]>>
   notionSetToken: (data: { token: string }) => Promise<void>
   notionGetProperties: (data: {
     dataSourceId: string

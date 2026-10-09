@@ -202,3 +202,58 @@ describe("Notion page URLs", () => {
     ).toEqual({ urls: [url] })
   })
 })
+
+describe("Notion database discovery", () => {
+  it("groups accessible sources across search pages and reads database names once", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [
+            {
+              id: "source-a",
+              title: [{ plain_text: "Words" }],
+              parent: { database_id: "database" },
+            },
+          ],
+          has_more: true,
+          next_cursor: "cursor",
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ title: [{ plain_text: "Library" }] }))
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [
+            { id: "source-b", title: [], parent: { database_id: "database" } },
+            { id: "source-a", title: [], parent: { database_id: "database" } },
+          ],
+          has_more: false,
+          next_cursor: null,
+        }),
+      )
+    expect(await createNotionProvider("secret", request).listDatabases()).toEqual([
+      {
+        id: "database",
+        name: "Library",
+        dataSources: [
+          { id: "source-a", name: "Words" },
+          { id: "source-b", name: "Untitled data source" },
+        ],
+      },
+    ])
+    expect(JSON.parse(request.mock.calls[2]![1]!.body as string)).toMatchObject({
+      start_cursor: "cursor",
+      filter: { value: "data_source" },
+    })
+  })
+  it("rejects repeated pagination cursors", async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() =>
+        Promise.resolve(Response.json({ results: [], has_more: true, next_cursor: "same" })),
+      )
+    await expect(createNotionProvider("secret", request).listDatabases()).rejects.toThrow(
+      "pagination",
+    )
+  })
+})

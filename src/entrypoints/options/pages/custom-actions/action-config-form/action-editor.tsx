@@ -317,11 +317,33 @@ function ReadOnlyLayout() {
 
 function NotebaseConnectionField({ variant }: { variant?: "card" | "tab" }) {
   const { form, action } = useActionEditor().state
+  const [provider, setProvider] = useState(action.notionConnection ? "notion" : "official")
   return (
-    <>
-      <NotebaseConnectionFormField form={form} variant={variant} />
-      <NotionConnectionFormField key={action.id} />
-    </>
+    <div className="space-y-4">
+      <nav className="flex gap-2" aria-label="笔记库设置">
+        <Button
+          type="button"
+          variant={provider === "official" ? "default" : "outline"}
+          aria-pressed={provider === "official"}
+          onClick={() => setProvider("official")}
+        >
+          官方笔记库
+        </Button>
+        <Button
+          type="button"
+          variant={provider === "notion" ? "default" : "outline"}
+          aria-pressed={provider === "notion"}
+          onClick={() => setProvider("notion")}
+        >
+          Notion 数据库
+        </Button>
+      </nav>
+      {provider === "official" ? (
+        <NotebaseConnectionFormField form={form} variant={variant} />
+      ) : (
+        <NotionConnectionFormField key={action.id} />
+      )}
+    </div>
   )
 }
 

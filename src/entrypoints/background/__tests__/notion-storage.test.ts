@@ -7,6 +7,7 @@ import { getBuiltInDictionaryAction, replaceSelectionToolbarAction } from "@/uti
 const mocks = vi.hoisted(() => ({
   onMessage: vi.fn<(...args: any[]) => any>(),
   getConfig: vi.fn<() => Promise<Config | null>>(),
+  listDatabases: vi.fn<(...args: any[]) => any>(),
   getProperties: vi.fn<(...args: any[]) => any>(),
   save: vi.fn<(...args: any[]) => any>(),
   provider: vi.fn<(...args: any[]) => any>(),
@@ -32,12 +33,29 @@ beforeEach(async () => {
   await storage.removeItem("local:notion-integration-token")
   const { setupNotionStorageHandlers } = await import("../notion-storage")
   setupNotionStorageHandlers()
-  mocks.provider.mockReturnValue({ getProperties: mocks.getProperties, save: mocks.save })
+  mocks.provider.mockReturnValue({
+    listDatabases: mocks.listDatabases,
+    getProperties: mocks.getProperties,
+    save: mocks.save,
+  })
   mocks.getProperties.mockResolvedValue([])
   mocks.save.mockResolvedValue({ urls: ["https://www.notion.so/saved"] })
 })
 
 describe("Notion background handlers", () => {
+  it("discovers databases with the background credential and returns no token", async () => {
+    expect(await handler("notionListDatabases")({ data: undefined })).toMatchObject({ ok: false })
+    await storage.setItem("local:notion-integration-token", "background-secret")
+    const databases = [
+      { id: "database", name: "Library", dataSources: [{ id: "source", name: "Words" }] },
+    ]
+    mocks.listDatabases.mockResolvedValue(databases)
+    expect(await handler("notionListDatabases")({ data: undefined })).toEqual({
+      ok: true,
+      value: databases,
+    })
+    expect(mocks.provider).toHaveBeenCalledWith("background-secret")
+  })
   it("rejects credential changes from content scripts", async () => {
     await expect(
       handler("notionSetToken")({

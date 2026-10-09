@@ -1,4 +1,5 @@
 import type {
+  NotionDatabase,
   NoteStorageField,
   NoteStorageProperty,
   NoteStorageProvider,
@@ -87,7 +88,7 @@ export function isNotionPageUrl(value: unknown): value is string {
 export function createNotionProvider(
   token: string,
   requestFetch: typeof fetch = fetch,
-): NoteStorageProvider<NotionConnection> {
+): NoteStorageProvider<NotionConnection> & { listDatabases: () => Promise<NotionDatabase[]> } {
   async function request(path: string, body?: unknown): Promise<unknown> {
     for (let attempt = 0; attempt < 3; attempt++) {
       let response: Response
@@ -148,6 +149,52 @@ export function createNotionProvider(
   }
   return {
     getProperties,
+    async listDatabases() {
+      const databases = new Map<string, NotionDatabase>()
+      let cursor: string | undefined
+      const seenCursors = new Set<string>()
+      do {
+        const result = (await request("search", {
+          filter: { property: "object", value: "data_source" },
+          page_size: 100,
+          ...(cursor ? { start_cursor: cursor } : {}),
+        })) as {
+          results: {
+            id: string
+            title: { plain_text: string }[]
+            parent: { database_id?: string }
+          }[]
+          has_more: boolean
+          next_cursor: string | null
+        }
+        for (const source of result.results) {
+          const id = source.parent.database_id
+          if (!id) continue
+          let database = databases.get(id)
+          if (!database) {
+            const metadata = (await request(`databases/${encodeURIComponent(id)}`)) as {
+              title: { plain_text: string }[]
+            }
+            database = {
+              id,
+              name: metadata.title.map((text) => text.plain_text).join("") || "Untitled database",
+              dataSources: [],
+            }
+            databases.set(id, database)
+          }
+          if (!database.dataSources.some((item) => item.id === source.id))
+            database.dataSources.push({
+              id: source.id,
+              name: source.title.map((text) => text.plain_text).join("") || "Untitled data source",
+            })
+        }
+        cursor = result.has_more ? (result.next_cursor ?? undefined) : undefined
+        if (result.has_more && (!cursor || seenCursors.has(cursor)))
+          throw new Error("Invalid Notion search pagination.")
+        if (cursor) seenCursors.add(cursor)
+      } while (cursor)
+      return [...databases.values()]
+    },
     async save(connection, fields, records) {
       const schema = await getProperties(connection.dataSourceId)
       // Validate every record before creating the first page.

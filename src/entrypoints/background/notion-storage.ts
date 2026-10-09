@@ -19,6 +19,18 @@ export function setupNotionStorageHandlers() {
     if (token) await storage.setItem(TOKEN_KEY, token)
     else await storage.removeItem(TOKEN_KEY)
   })
+  onMessage("notionListDatabases", async () => {
+    try {
+      const token = await storage.getItem<string>(TOKEN_KEY)
+      if (!token) throw new Error("Set your Notion integration token in extension settings.")
+      return { ok: true as const, value: await createNotionProvider(token).listDatabases() }
+    } catch (error) {
+      return {
+        ok: false as const,
+        error: error instanceof Error ? error.message : "Notion databases unavailable.",
+      }
+    }
+  })
   onMessage("notionGetProperties", async ({ data }) => {
     try {
       const id = notionConnectionSchema.shape.dataSourceId.parse(data.dataSourceId)
