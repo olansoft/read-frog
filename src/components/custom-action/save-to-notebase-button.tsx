@@ -6,7 +6,7 @@ import { authClient } from "@/utils/auth/auth-client"
 import { i18n } from "@/utils/i18n"
 import { sanitizeCustomActionNotebaseConnection } from "@/utils/notebase/connection"
 import { cn } from "@/utils/styles/utils"
-import { useSaveToNotebase } from "./use-save-to-notebase"
+import { useSaveToNoteStorage } from "./use-save-to-note-storage"
 
 export function SaveToNotebaseButton({
   action,
@@ -22,7 +22,7 @@ export function SaveToNotebaseButton({
     action.outputSchema,
   )
   const { isPending: isSessionPending } = authClient.useSession()
-  const { save, isSaving, isAuthenticated, hasCurrentAccount } = useSaveToNotebase()
+  const { save, isSaving, isAuthenticated, hasCurrentAccount } = useSaveToNoteStorage()
 
   const handleClick = () => {
     if (!result) {
@@ -32,15 +32,22 @@ export function SaveToNotebaseButton({
     void save({ action, results: [result] })
   }
 
-  const isDisabled = connection
-    ? isSessionPending ||
-      isRunning ||
-      !result ||
-      (isAuthenticated && !hasCurrentAccount) ||
-      isSaving
-    : isSessionPending || isRunning || !result
-  const label =
-    connection && isSaving ? i18n.t("action.saveToNotebaseSaving") : i18n.t("action.saveToNotebase")
+  const isDisabled = action.notionConnection
+    ? isRunning || !result || isSaving
+    : connection
+      ? isSessionPending ||
+        isRunning ||
+        !result ||
+        (isAuthenticated && !hasCurrentAccount) ||
+        isSaving
+      : isSessionPending || isRunning || !result
+  const label = action.notionConnection
+    ? isSaving
+      ? "Saving to Notion…"
+      : "Save to Notion"
+    : connection && isSaving
+      ? i18n.t("action.saveToNotebaseSaving")
+      : i18n.t("action.saveToNotebase")
 
   // Shrinks with the footer: the label truncates, then gives way to an icon.
   return (

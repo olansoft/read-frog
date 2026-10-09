@@ -39,6 +39,7 @@ import { IconField as IconFormField } from "./icon-field"
 import { LayoutField as EditableLayoutFormField, ReadOnlyLayoutField } from "./layout-field"
 import { NameField as NameFormField } from "./name-field"
 import { NotebaseConnectionField as NotebaseConnectionFormField } from "./notebase-connection-field"
+import { NotionConnectionField as NotionConnectionFormField } from "./notion-connection-field"
 import {
   OutputSchemaField as EditableOutputSchemaFormField,
   ReadOnlyOutputSchemaField,
@@ -315,8 +316,13 @@ function ReadOnlyLayout() {
 }
 
 function NotebaseConnectionField({ variant }: { variant?: "card" | "tab" }) {
-  const { form } = useActionEditor().state
-  return <NotebaseConnectionFormField form={form} variant={variant} />
+  const { form, action } = useActionEditor().state
+  return (
+    <>
+      <NotebaseConnectionFormField form={form} variant={variant} />
+      <NotionConnectionFormField key={action.id} />
+    </>
+  )
 }
 
 function DuplicateButton() {

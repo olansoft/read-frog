@@ -302,6 +302,42 @@ describe("saveToNotebaseButton notebase availability", () => {
     guideTrackingMocks.getActiveGuideDictionaryNotebaseTrackingForAction.mockResolvedValue(null)
   })
 
+  it("saves to Notion while the official session is pending without calling Notebase", async () => {
+    const config = cloneConfig(DEFAULT_CONFIG)
+    const action = {
+      ...createConnectedAction(),
+      notionConnection: {
+        provider: "notion" as const,
+        dataSourceId: "12345678-1234-1234-1234-123456789abc",
+        mappings: [
+          { localFieldId: "field-summary", propertyId: "title", propertyType: "title" as const },
+        ],
+      },
+    }
+    mockAuthState.isPending = true
+    vi.mocked(sendMessage).mockResolvedValue({
+      ok: true,
+      value: { urls: ["https://www.notion.so/saved"] },
+    } as never)
+    renderButton(config, action)
+    const button = screen.getByRole("button", { name: "Save to Notion" })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith("notionSave", {
+        actionId: action.id,
+        records: [{ summary: "A short summary" }],
+      }),
+    )
+    await waitFor(() =>
+      expect(toastManagerMock.add).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "success", title: "Saved to Notion" }),
+      ),
+    )
+    expect(orpcClient.notebase.list).not.toHaveBeenCalled()
+    expect(notebaseRowCreateMock).not.toHaveBeenCalled()
+  })
+
   it("renders when beta experience is disabled", () => {
     const config = cloneConfig(DEFAULT_CONFIG)
 
