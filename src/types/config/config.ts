@@ -171,6 +171,10 @@ export const configSchema = z
   .object({
     language: languageSchema,
     providersConfig: providersConfigSchema,
+    notion: z
+      .object({ apiKey: z.string().trim().max(512).optional() })
+      .optional()
+      .catch(undefined),
     pageTranslation: translateConfigSchema,
     languageDetection: languageDetectionConfigSchema,
     tts: ttsConfigSchema,

@@ -20,7 +20,7 @@ WXT_SKIP_ENV_VALIDATION=true pnpm build
 1. 在 Notion 创建内部集成，授予读取内容和插入内容权限，并把目标数据库连接到该集成。
 2. 不需要手动取得 Database ID 或 Data Source ID。扩展使用令牌查找可访问的数据源，并按所属 Database 分组。
 3. 打开扩展设置 → 自定义 AI 动作 → 选择动作 → 笔记库页签，在顶部菜单选择 **Notion 数据库**。**官方笔记库** 菜单显示原有官方设置，两者不会同时显示。内置词典等动作也支持配置。
-4. 填写内部集成令牌并点击 **Save token**。令牌由所有动作共用，只存入当前扩展的本地存储，不进入配置导出、自动备份或配置同步。
+4. 填写内部集成令牌并点击 **Save token**。令牌由所有动作共用，保存在 ReadFrog 配置的 `notion.apiKey` 中，随完整配置导出、导入、备份和同步。导出时选择“包含 API Keys”才会包含 Token；选择不包含 API Keys 会移除 Token，保留数据源连接和字段映射。
 5. 保存令牌后自动查找数据库；已有令牌可以点击 **查找 / 刷新数据库**。先选择 Database，再选择其中的 Data Source，点击 **Load / refresh fields**。同一 Database 下的多个可访问数据源分别列出，未命名项附带 ID 末尾以便区分。
 6. 将文本输出映射到 Title 或 Rich text，数字输出映射到 Number。必须有一个标题映射，同一个 Notion 属性只能使用一次。
 7. 点击 **Enable Notion**。生成 AI 结果后，按钮显示 **Save to Notion**；保存成功提示可以直接打开新页面。
@@ -29,7 +29,7 @@ WXT_SKIP_ENV_VALIDATION=true pnpm build
 
 此版本支持 Title、Rich text、Number。映射使用动作字段 ID 和 Notion 属性 ID，重命名不会使映射失效。每次保存重新读取结构；字段删除或类型变化时会提示修复映射。修改数据源后需要重新读取字段并启用连接。
 
-令牌不会回填到界面，也不会传给内容脚本；只有扩展设置页可以修改或移除令牌。卸载扩展会删除本地令牌，导入配置到另一浏览器后需要重新填写。浏览器扩展本地存储不是系统密钥库。
+令牌不会回填到输入框，保存消息仍由后台发出；只有扩展设置页可以修改或移除令牌。完整导出的 JSON 包含明文 Token，请妥善保管；导入该配置后无需重新填写。旧版本独立本地存储的 Token 会自动迁入配置。
 
 批量保存按顺序进行，单次最多 100 条。遇到 `429` 会遵守 `Retry-After`，最多请求三次；等待时间超过 30 秒时提示稍后重试。网络中断或服务端错误不会自动重试创建页面，因为服务端可能已经创建成功。失败提示会报告已确认保存的数量；请先检查 Notion 再重试。同一界面、同一连接、同一批结果的重试会跳过已确认成功的前缀；重新加载界面或改变结果后不会保留这份进度。
 
@@ -38,7 +38,7 @@ WXT_SKIP_ENV_VALIDATION=true pnpm build
 新增代码集中在以下位置：
 
 - `src/utils/note-storage/`：连接类型、后台 Provider 接口、Notion API 与字段转换。
-- `src/entrypoints/background/notion-storage.ts`：令牌存储、消息校验、配置解析和跨标签页保存队列。
+- `src/entrypoints/background/notion-storage.ts`：令牌迁移、消息校验、配置解析和跨标签页保存队列。
 - `src/components/custom-action/use-save-to-note-storage.ts`：统一保存入口，按动作连接分发到原有 Notebase hook 或独立 Notion hook。
 - `src/entrypoints/options/pages/custom-actions/action-config-form/notion-connection-field.tsx`：独立配置组件。
 
@@ -78,7 +78,7 @@ SKIP_FREE_API=true pnpm test
 WXT_SKIP_ENV_VALIDATION=true pnpm build
 ```
 
-真实 API 验证需要自己的 Notion 集成和测试数据源：检查单条写入、批量写入、属性重命名、移除集成访问权限与导出配置不包含令牌。自动化测试使用模拟响应，不向真实数据库写入。
+真实 API 验证需要自己的 Notion 集成和测试数据源：检查单条写入、批量写入、属性重命名、移除集成访问权限，以及完整导出恢复令牌、不含 API Keys 的导出移除令牌。自动化测试使用模拟响应，不向真实数据库写入。
 
 ## API 依据
 

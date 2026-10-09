@@ -66,7 +66,7 @@ export function NotionConnectionField() {
         save destination. Disconnect to use Notebase.
       </p>
       <label className="block space-y-1 text-sm">
-        <span>Integration token (shared by all actions, stored locally)</span>
+        <span>Integration token (shared by all actions, included in configuration)</span>
         <Input
           type="password"
           autoComplete="off"
@@ -104,7 +104,9 @@ export function NotionConnectionField() {
               setDatabases([])
               setProperties([])
               setDatabaseId("")
-              setMessage("Saved token removed. All Notion connections now need a token.")
+              setMessage(
+                "Token removed from configuration. All Notion connections now need a token.",
+              )
             })
           }
         >

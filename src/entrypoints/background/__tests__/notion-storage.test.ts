@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG } from "@/utils/constants/config"
 import { getBuiltInDictionaryAction, replaceSelectionToolbarAction } from "@/utils/custom-actions"
 
 const mocks = vi.hoisted(() => ({
+  writeConfig: vi.fn<(...args: any[]) => Promise<void>>(),
   onMessage: vi.fn<(...args: any[]) => any>(),
   getConfig: vi.fn<() => Promise<Config | null>>(),
   listDatabases: vi.fn<(...args: any[]) => any>(),
@@ -12,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn<(...args: any[]) => any>(),
   provider: vi.fn<(...args: any[]) => any>(),
 }))
+vi.mock("jotai", () => ({ getDefaultStore: () => ({ set: mocks.writeConfig }) }))
+vi.mock("@/utils/atoms/config", () => ({ writeConfigAtom: "config-writer" }))
 vi.mock("@/utils/message", () => ({ onMessage: mocks.onMessage }))
 vi.mock("@/utils/config/storage", () => ({ getLocalConfig: mocks.getConfig }))
 vi.mock("@/utils/note-storage/providers/notion", async (importOriginal) => {
@@ -30,6 +33,14 @@ function handler(name: string) {
 
 beforeEach(async () => {
   vi.clearAllMocks()
+  mocks.getConfig.mockResolvedValue(structuredClone(DEFAULT_CONFIG))
+  mocks.writeConfig.mockImplementation(async (_atom, patch) => {
+    const config = await mocks.getConfig()
+    mocks.getConfig.mockResolvedValue({
+      ...config!,
+      ...(typeof patch === "function" ? patch(config!) : patch),
+    })
+  })
   await storage.removeItem("local:notion-integration-token")
   const { setupNotionStorageHandlers } = await import("../notion-storage")
   setupNotionStorageHandlers()
@@ -43,6 +54,23 @@ beforeEach(async () => {
 })
 
 describe("Notion background handlers", () => {
+  it("uses credentials restored from configuration instead of legacy storage", async () => {
+    mocks.getConfig.mockResolvedValue({
+      ...structuredClone(DEFAULT_CONFIG),
+      notion: { apiKey: "imported-token" },
+    })
+    await storage.setItem("local:notion-integration-token", "outdated-token")
+    mocks.listDatabases.mockResolvedValue([])
+    expect(await handler("notionListDatabases")({ data: undefined })).toMatchObject({ ok: true })
+    expect(mocks.provider).toHaveBeenCalledWith("imported-token")
+  })
+  it("migrates legacy credentials into configuration and removes the separate secret", async () => {
+    await storage.setItem("local:notion-integration-token", "legacy-token")
+    mocks.listDatabases.mockResolvedValue([])
+    await handler("notionListDatabases")({ data: undefined })
+    expect((await mocks.getConfig())?.notion?.apiKey).toBe("legacy-token")
+    expect(await storage.getItem("local:notion-integration-token")).toBeNull()
+  })
   it("discovers databases with the background credential and returns no token", async () => {
     expect(await handler("notionListDatabases")({ data: undefined })).toMatchObject({ ok: false })
     await storage.setItem("local:notion-integration-token", "background-secret")
@@ -65,14 +93,15 @@ describe("Notion background handlers", () => {
     ).rejects.toThrow("extension settings")
     expect(await storage.getItem("local:notion-integration-token")).toBeNull()
   })
-  it("stores credentials outside Config and never returns them", async () => {
+  it("stores credentials in Config without returning them in credential replies", async () => {
     const sender = { url: browser.runtime.getURL("/options.html") }
     expect(
       await handler("notionSetToken")({ data: { token: " private " }, sender }),
     ).toBeUndefined()
-    expect(await storage.getItem("local:notion-integration-token")).toBe("private")
-    expect(mocks.getConfig).not.toHaveBeenCalled()
+    expect((await mocks.getConfig())?.notion?.apiKey).toBe("private")
+    expect(await storage.getItem("local:notion-integration-token")).toBeNull()
     await handler("notionSetToken")({ data: { token: "" }, sender })
+    expect((await mocks.getConfig())?.notion?.apiKey).toBeUndefined()
     expect(await storage.getItem("local:notion-integration-token")).toBeNull()
   })
   it("fails without a local token and rejects arbitrary target URLs", async () => {
