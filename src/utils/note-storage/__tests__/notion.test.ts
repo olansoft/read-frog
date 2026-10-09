@@ -220,11 +220,25 @@ describe("Notion database discovery", () => {
           next_cursor: "cursor",
         }),
       )
-      .mockResolvedValueOnce(Response.json({ title: [{ plain_text: "Library" }] }))
+      .mockResolvedValueOnce(
+        Response.json({
+          title: [{ plain_text: "Library" }],
+          data_sources: [
+            { id: "source-a", name: "Words" },
+            { id: "source-b", name: "" },
+          ],
+        }),
+      )
       .mockResolvedValueOnce(
         Response.json({
           results: [
             { id: "source-b", title: [], parent: { database_id: "database" } },
+            {
+              id: "deleted-source",
+              title: [],
+              parent: { database_id: "database" },
+              in_trash: false,
+            },
             { id: "source-a", title: [], parent: { database_id: "database" } },
           ],
           has_more: false,

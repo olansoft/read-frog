@@ -151,6 +151,7 @@ export function createNotionProvider(
     getProperties,
     async listDatabases() {
       const databases = new Map<string, NotionDatabase>()
+      const currentSources = new Map<string, { id: string; name: string }[]>()
       let cursor: string | undefined
       const seenCursors = new Set<string>()
       do {
@@ -161,6 +162,8 @@ export function createNotionProvider(
         })) as {
           results: {
             id: string
+            in_trash?: boolean
+            archived?: boolean
             title: { plain_text: string }[]
             parent: { database_id?: string }
           }[]
@@ -169,12 +172,15 @@ export function createNotionProvider(
         }
         for (const source of result.results) {
           const id = source.parent.database_id
-          if (!id) continue
+          if (!id || source.in_trash || source.archived) continue
           let database = databases.get(id)
           if (!database) {
             const metadata = (await request(`databases/${encodeURIComponent(id)}`)) as {
               title: { plain_text: string }[]
+              data_sources: { id: string; name: string }[]
+              in_trash?: boolean
             }
+            currentSources.set(id, metadata.in_trash ? [] : metadata.data_sources)
             database = {
               id,
               name: metadata.title.map((text) => text.plain_text).join("") || "Untitled database",
@@ -182,10 +188,14 @@ export function createNotionProvider(
             }
             databases.set(id, database)
           }
-          if (!database.dataSources.some((item) => item.id === source.id))
+          const currentSource = currentSources.get(id)?.find((item) => item.id === source.id)
+          if (currentSource && !database.dataSources.some((item) => item.id === source.id))
             database.dataSources.push({
               id: source.id,
-              name: source.title.map((text) => text.plain_text).join("") || "Untitled data source",
+              name:
+                currentSource.name ||
+                source.title.map((text) => text.plain_text).join("") ||
+                "Untitled data source",
             })
         }
         cursor = result.has_more ? (result.next_cursor ?? undefined) : undefined
@@ -193,7 +203,7 @@ export function createNotionProvider(
           throw new Error("Invalid Notion search pagination.")
         if (cursor) seenCursors.add(cursor)
       } while (cursor)
-      return [...databases.values()]
+      return [...databases.values()].filter((database) => database.dataSources.length > 0)
     },
     async save(connection, fields, records) {
       const schema = await getProperties(connection.dataSourceId)
