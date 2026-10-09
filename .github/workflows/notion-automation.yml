@@ -1,0 +1,68 @@
+name: Notion fork - Sync and package
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  push:
+    branches: [feature/notion-note-storage]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize upstream syncs; each source push keeps its own packaging run.
+concurrency:
+  group: notion-fork-${{ github.event_name == 'push' && github.sha || 'upstream-sync' }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+
+jobs:
+  sync:
+    if: github.repository == 'olansoft/read-frog' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      updated: ${{ steps.sync.outputs.updated }}
+      sha: ${{ steps.sync.outputs.sha }}
+      release_sha: ${{ steps.sync.outputs.release_sha }}
+      release_id: ${{ steps.sync.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/notion-note-storage
+          fetch-depth: 0
+      - name: Merge latest stable upstream release
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/fork/sync-upstream.sh
+
+  package:
+    needs: sync
+    if: >-
+      always() && github.repository == 'olansoft/read-frog' &&
+      (github.event_name == 'push' ||
+      (needs.sync.result == 'success' &&
+      (needs.sync.outputs.updated == 'true' || github.event_name == 'workflow_dispatch')))
+    uses: ./.github/workflows/notion-crx.yml
+    with:
+      ref: ${{ needs.sync.outputs.sha || github.sha }}
+    secrets: inherit
+
+  mark-release-built:
+    needs: [sync, package]
+    if: >-
+      always() && needs.package.result == 'success' && needs.sync.outputs.updated == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mark upstream release only after successful packaging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.sync.outputs.release_id }}
+          RELEASE_SHA: ${{ needs.sync.outputs.release_sha }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/notion-upstream-release-$RELEASE_ID" -f sha="$RELEASE_SHA"

@@ -85,3 +85,22 @@ WXT_SKIP_ENV_VALIDATION=true pnpm build
 - [读取 Data Source](https://developers.notion.com/reference/retrieve-a-data-source)
 - [创建页面](https://developers.notion.com/reference/post-page)
 - [API 限流和大小限制](https://developers.notion.com/reference/request-limits)
+
+## 自动同步与 CRX 发布
+
+Fork 的默认分支为 `feature/notion-note-storage`，`main` 保留为上游基线。GitHub Actions 每小时第 23 分钟检查官方仓库的最新稳定 Release；不跟踪预发布版本，也不跟踪尚未发布的 main 提交。GitHub 定时任务可能排队延迟。
+
+发现新 Release 后，流程把发布标签对应的提交合并到 Notion 分支，然后运行类型检查、测试和构建，生成固定密钥签名的 CRX 与 ZIP。Notion 分支的每次 push 也会独立触发打包。上游同步使用 `GITHUB_TOKEN` 推送时不会触发另一次 push 工作流，因此同步任务直接调用打包工作流。
+
+`.github/workflows` 由 Fork 自己维护，同步时保留该目录的现有内容；其余文件正常合并。这样既避免官方 Changesets/商店发布流程覆盖 Fork 流程，也无需额外保存具备 workflow 权限的个人令牌。源码冲突时终止合并且不推送，需要手动解决后重新运行。上游 Release 仅在打包成功后记录完成标记，失败构建会在下次轮询重试。
+
+产物在本仓库 Releases 中以 `notion-build-N` 预发布版本提供，并附带 SHA256 校验文件；Actions Artifacts 保留 90 天。CRX 的版本在上游三段版本后追加 workflow run number，例如 `1.50.2.12`，保证同一上游版本下的 Notion 更新也能递增。run number 超过 Chrome 的 65535 上限时，流程会明确失败，需要调整版本策略。
+
+固定签名密钥存放在仓库 Actions Secret `CRX_SIGNING_KEY`；本地备份是 `.fork-private/crx-signing-key.pem`，该目录被 Git 忽略。请另外备份这份密钥，后续不要重新生成，否则扩展 ID 会改变。工作流只上传 CRX、ZIP 与校验文件，不上传私钥。
+
+手动检查上游或重打包：打开 Actions → **Notion fork - Sync and package** → **Run workflow**。定时任务依赖默认分支中的工作流，因此请保持 Notion 分支为 Fork 默认分支。自动化失败时查看 Actions 日志；合并冲突与签名缺失不会静默跳过。
+
+CRX 可否直接安装取决于浏览器的扩展安装策略；同时提供的 ZIP 可以解压后通过“加载已解压的扩展程序”安装。这套流程发布构建文件，不配置浏览器端的自动更新服务器。
+
+- [GitHub 工作流触发与 GITHUB_TOKEN](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
+- [Chrome CRX 签名与分发](https://developer.chrome.com/docs/extensions/how-to/distribute/host-on-linux)

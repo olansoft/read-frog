@@ -1,0 +1,62 @@
+name: Notion fork - Build CRX
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+    secrets:
+      CRX_SIGNING_KEY:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  crx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HUSKY: "0"
+      SKIP_FREE_API: "true"
+      WXT_SKIP_ENV_VALIDATION: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/setup@v3
+        with:
+          install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm type-check
+      - run: pnpm test --exclude="**/free-api.test.ts"
+      - run: pnpm build
+      - name: Sign CRX and create ZIP
+        id: pack
+        env:
+          CRX_SIGNING_KEY: ${{ secrets.CRX_SIGNING_KEY }}
+        run: bash .github/scripts/fork/package-crx.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: readfrog-notion-${{ github.run_number }}
+          path: .output/notion-packages/*
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish build release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_SHA: ${{ inputs.ref }}
+          BUILD_VERSION: ${{ steps.pack.outputs.version }}
+        run: |
+          tag="notion-build-$GITHUB_RUN_NUMBER"
+          notes="$RUNNER_TEMP/notion-release-notes.md"
+          printf 'Notion fork build `%s` from commit `%s`.\n\nCRX uses the persistent signing key. ZIP supports loading the unpacked extension.\n' \
+            "$BUILD_VERSION" "$BUILD_SHA" > "$notes"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$BUILD_SHA" --title "ReadFrog Notion $BUILD_VERSION" \
+              --prerelease --notes-file "$notes"
+          fi
+          gh release upload "$tag" .output/notion-packages/* --clobber

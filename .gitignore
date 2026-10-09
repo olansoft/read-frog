@@ -47,3 +47,6 @@ scripts/output/
 
 reference/
 .gstack/
+
+# Local backup of the fork signing key
+/.fork-private/
