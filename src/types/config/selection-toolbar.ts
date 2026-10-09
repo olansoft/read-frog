@@ -3,6 +3,7 @@ import { langCodeISO6393Schema } from "@read-frog/definitions"
 import { z } from "zod"
 import { isBuiltInActionId } from "@/utils/constants/custom-action"
 import { BUILT_IN_AI_PROVIDER_ID } from "@/utils/constants/provider-ids"
+import { notionConnectionSchema } from "@/utils/note-storage/types"
 
 // Upper bound (UTF-16 code units) of a custom action's HTML layout. NEVER lower
 // it: an older build that reads a config holding a longer layout fails schema
@@ -62,6 +63,7 @@ export const selectionToolbarBuiltInActionStateSchema = z.object({
   enabled: z.boolean(),
   providerId: z.string().nonempty(),
   notebaseConnection: selectionToolbarCustomActionNotebaseConnectionSchema.optional(),
+  notionConnection: notionConnectionSchema.optional().catch(undefined),
 })
 
 export const selectionToolbarBuiltInActionsSchema = z.object({
@@ -93,6 +95,7 @@ export const selectionToolbarCustomActionSchema = z
     prompt: z.string(),
     outputSchema: z.array(selectionToolbarCustomActionOutputFieldSchema).min(1),
     notebaseConnection: selectionToolbarCustomActionNotebaseConnectionSchema.optional(),
+    notionConnection: notionConnectionSchema.optional().catch(undefined),
     // HTML + Liquid template for the result. Optional, not defaulted, and never
     // syntax-checked here: a missing or blank layout renders the default field
     // list, and a template error must not fail the whole config parse (which

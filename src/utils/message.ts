@@ -22,11 +22,24 @@ import type {
 import type { GlossarySnapshot } from "@/utils/glossary/active-matcher"
 import type { MatchedTerm } from "@/utils/glossary/types"
 import type { HostedAiStatus } from "@/utils/hosted-ai/types"
+import type {
+  NoteStorageReply,
+  NoteStorageProperty,
+  NoteStorageSaveResult,
+} from "@/utils/note-storage/types"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import type { EdgeTTSVoice } from "@/utils/server/edge-tts/types"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
 interface ProtocolMap {
+  notionSetToken: (data: { token: string }) => Promise<void>
+  notionGetProperties: (data: {
+    dataSourceId: string
+  }) => Promise<NoteStorageReply<NoteStorageProperty[]>>
+  notionSave: (data: {
+    actionId: string
+    records: Record<string, unknown>[]
+  }) => Promise<NoteStorageReply<NoteStorageSaveResult>>
   // navigation
   openPage: (data: { url: string; active?: boolean }) => void
   openOptionsPage: (data?: { route?: `/${string}` }) => void

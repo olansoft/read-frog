@@ -32,6 +32,7 @@ import { setupLLMGenerateTextMessageHandlers } from "./llm-generate-text"
 import { initMockData } from "./mock-data"
 import { newUserGuide } from "./new-user-guide"
 import { setupNotebasePendingSaveProcessor } from "./notebase-pending-save"
+import { setupNotionStorageHandlers } from "./notion-storage"
 import { setupPageTranslationHandlers } from "./page-translation"
 import { proxyFetch } from "./proxy-fetch"
 import { setupSidePanelMessageHandler } from "./side-panel"
@@ -119,6 +120,7 @@ export default defineBackground({
       await cleanupAllAiSegmentationCache()
     })
 
+    setupNotionStorageHandlers()
     newUserGuide()
     setupFeatureUsedEventHandlers()
     translationMessage()

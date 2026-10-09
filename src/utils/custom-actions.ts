@@ -44,6 +44,7 @@ export function getBuiltInAction(
     enabled: state.enabled,
     providerId: state.providerId,
     ...(state.notebaseConnection ? { notebaseConnection: state.notebaseConnection } : {}),
+    ...(state.notionConnection ? { notionConnection: state.notionConnection } : {}),
   }
 }
 
@@ -93,6 +94,7 @@ function toBuiltInState(action: SelectionToolbarCustomAction): SelectionToolbarB
     enabled: action.enabled !== false,
     providerId: action.providerId,
     notebaseConnection: action.notebaseConnection,
+    notionConnection: action.notionConnection,
   }
 }
 
@@ -122,7 +124,10 @@ export function patchSelectionToolbarAction(
   selectionToolbar: SelectionToolbarConfig,
   actionId: string,
   patch: Partial<
-    Pick<SelectionToolbarCustomAction, "enabled" | "providerId" | "notebaseConnection">
+    Pick<
+      SelectionToolbarCustomAction,
+      "enabled" | "providerId" | "notebaseConnection" | "notionConnection"
+    >
   >,
 ): SelectionToolbarConfig {
   const action = findSelectionToolbarAction(selectionToolbar, actionId)
