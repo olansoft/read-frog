@@ -1,6 +1,6 @@
 import type { NotionConnection } from "../types"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { buildNotionProperties, createNotionProvider } from "../providers/notion"
+import { buildNotionProperties, createNotionProvider, isNotionPageUrl } from "../providers/notion"
 
 const connection: NotionConnection = {
   provider: "notion",
@@ -167,5 +167,38 @@ describe("Notion API provider", () => {
       createNotionProvider("test-token", request).save(connection, fields, [record]),
     ).rejects.toThrow("Notion request failed (500)")
     expect(request).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("Notion page URLs", () => {
+  it.each([
+    "https://app.notion.com/p/page",
+    "https://www.notion.so/page",
+    "https://notion.so/page",
+    "https://www.notion.com/page",
+    "https://notion.com/page",
+  ])("accepts official URL %s", (url) => {
+    expect(isNotionPageUrl(url)).toBe(true)
+  })
+  it.each([
+    "http://app.notion.com/p/page",
+    "https://www.notion.so.evil.example/page",
+    "https://evil.example/",
+    "https://user@app.notion.com/p/page",
+    "https://app.notion.com:8080/p/page",
+    "invalid",
+    null,
+  ])("rejects unsafe URL %s", (url) => {
+    expect(isNotionPageUrl(url)).toBe(false)
+  })
+  it("accepts the current API page URL after creating a page", async () => {
+    const url = "https://app.notion.com/p/page"
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(schemaResponse())
+      .mockResolvedValueOnce(Response.json({ url }))
+    expect(
+      await createNotionProvider("test-token", request).save(connection, fields, [record]),
+    ).toEqual({ urls: [url] })
   })
 })

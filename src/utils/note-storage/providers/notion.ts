@@ -66,6 +66,24 @@ export function buildNotionProperties(
   return properties
 }
 
+export function isNotionPageUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false
+  try {
+    const url = new URL(value)
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      ["app.notion.com", "www.notion.com", "notion.com", "www.notion.so", "notion.so"].includes(
+        url.hostname,
+      )
+    )
+  } catch {
+    return false
+  }
+}
+
 export function createNotionProvider(
   token: string,
   requestFetch: typeof fetch = fetch,
@@ -144,7 +162,7 @@ export function createNotionProvider(
             parent: { type: "data_source_id", data_source_id: connection.dataSourceId },
             properties: property,
           })) as { url: string }
-          if (typeof page.url !== "string" || new URL(page.url).hostname !== "www.notion.so")
+          if (!isNotionPageUrl(page.url))
             throw new Error(
               "Unexpected Notion page response. Check the database before saving again.",
             )
